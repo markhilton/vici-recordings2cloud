@@ -51,7 +51,7 @@ $cc    = 1;
 $db    = new db($VARDB_server, $VARDB_user, $VARDB_pass, $VARDB_database);
 $count = $db->GetOne('SELECT COUNT(*) FROM recording_log WHERE location LIKE "http://'.IP_ADDRESS.'/%.mp3"');
 
-printf("Recordings to process: %d\n\n", $count);
+printf("Recordings to process: %s\n\n", number_format($count, 0));
 
 do {
     $recording = $db->GetRow('SELECT * FROM recording_log WHERE location LIKE "http://'.IP_ADDRESS.'/%.mp3" ORDER BY RAND() LIMIT 1');
@@ -75,10 +75,10 @@ do {
     // remove DB entry if file not found
     if (! file_exists(MP3_PATH.'/'.$file)) $length = 1;
 
-    if ($length < DELETE_FILE_LESS_THAN and $length > 0)
+    if ($length < DELETE_FILE_LESS_THAN and $length >= 0)
     {
-        printf("%d. Removing %s sec file [ %dkb ] : %s\n",
-        $cc++, $length, file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, MP3_PATH.'/'.$file);
+        printf("%s / %s. Removing %s sec file [ %dkb ]: %s/%s\n",
+        $cc++, number_format($count, 0), $length, file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, MP3_PATH, $file);
 
         if (file_exists(MP3_PATH. '/'.$file)) unlink(MP3_PATH. '/'.$file);
 
@@ -96,12 +96,12 @@ do {
     }
 
     // move file to GCS
-    printf("%d. %s sec [ %dkb ] - %s\n", $cc++, $length, file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, $command.$gcs);
+    printf("%s / %s. %s sec [ %dkb ]: %s %s\n", 
+        $cc++, number_format($count, 0), $length, file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, $command, $gcs);
     exec($command.$gcs.' 2>&1', $return);
 
     $return = join("\n", $return);
-    echo $return;
-
+    echo $return; unset($return);
     exec(GSUTIL_PATH . ' acl set public-read ' . $gcs . ' 2>&1', $return);
 
     // update database with new recording location on successful gsutil mv
