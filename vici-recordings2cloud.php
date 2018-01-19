@@ -76,7 +76,7 @@ do {
     if (! file_exists(MP3_PATH.'/'.$file)) $length = 1;
 
     // remove special characters from file names
-    $orig_file = str_replace(['*', '#'], ['', ''], MP3_PATH.'/'.$file);
+    $orig_file = str_replace(array('*', '#'), array('', ''), MP3_PATH.'/'.$file);
     
     if ($orig_file != MP3_PATH.'/'.$file) {
         rename(MP3_PATH.'/'.$file, $orig_file);
