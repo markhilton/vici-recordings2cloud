@@ -75,17 +75,24 @@ do {
     // remove DB entry if file not found
     if (! file_exists(MP3_PATH.'/'.$file)) $length = 1;
 
+    // remove special characters from file names
+    $orig_file = str_replace(['*', '#'], ['', ''], MP3_PATH.'/'.$file);
+    
+    if ($orig_file != MP3_PATH.'/'.$file) {
+        rename(MP3_PATH.'/'.$file, $orig_file);
+    }
+
     if ($length >= 0 and $length < DELETE_FILE_LESS_THAN)
     {
         $log = sprintf("[%s] %s/%s. REMOVING %s sec file [ %dkb ]: \n\t%s/%s\n",
             date("Y-m-d H:i:s"), $cc++, number_format($count, 0), $length, 
-            file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, MP3_PATH, $file);
+            file_exists($orig_file) ? filesize($orig_file) : 0, MP3_PATH, $file);
 
         echo $log;
 
         file_put_contents('/var/log/vici2cloud.deleted.log', $log, FILE_APPEND);
 
-        if (file_exists(MP3_PATH.'/'.$file)) unlink(MP3_PATH.'/'.$file);
+        if (file_exists($orig_file)) unlink($orig_file);
 
         if ($recording['filename'])
         {
@@ -105,7 +112,7 @@ do {
     // move file to GCS
     $log = sprintf("[%s] %s/%s. %s sec [ %dkb ]: MOVING\n\t%s %s : ", 
         date("Y-m-d H:i:s"), $cc++, number_format($count, 0), $length, 
-        file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, $command, $gcs);
+        file_exists($orig_file) ? filesize($orig_file) : 0, $command, $gcs);
 
     exec($command.$gcs.' 2>&1', $return);
 
