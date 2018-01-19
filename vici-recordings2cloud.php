@@ -79,7 +79,10 @@ do {
     $orig_file = str_replace(array('*', '#'), array('', ''), MP3_PATH.'/'.$file);
     
     if ($orig_file != MP3_PATH.'/'.$file) {
+        $log = sprintf("RENAMING: %s -> %s\h", MP3_PATH.'/'.$file, $orig_file);
+        file_put_contents('/var/log/vici2cloud.deleted.log', $log, FILE_APPEND);
         rename(MP3_PATH.'/'.$file, $orig_file);
+        echo $log;
     }
 
     if ($length >= 0 and $length < DELETE_FILE_LESS_THAN)
