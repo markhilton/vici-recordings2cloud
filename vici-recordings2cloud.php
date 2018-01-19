@@ -62,11 +62,11 @@ do {
     $command   = sprintf('%s -qmo GSUtil:parallel_composite_upload_threshold=10M mv %s/%s ', 
                     GSUTIL_PATH, MP3_PATH, $file);
     $gcs       = sprintf('gs://%s/%s/%s/%s/%s/%s.mp3',
-                     GCS_BUCKET, INSTANCE_ID,
-                     date('Y', $recording['start_epoch']), // recording year
-                     date('M', $recording['start_epoch']), // recording month
-                     date('d', $recording['start_epoch']), // recording day
-                     $recording['filename']
+                    GCS_BUCKET, INSTANCE_ID,
+                    date('Y', $recording['start_epoch']), // recording year
+                    date('M', $recording['start_epoch']), // recording month
+                    date('d', $recording['start_epoch']), // recording day
+                    $recording['filename']
     );
 
     // remove all recording lasting less than X seconds
@@ -75,18 +75,25 @@ do {
     // remove DB entry if file not found
     if (! file_exists(MP3_PATH.'/'.$file)) $length = 1;
 
-    if ($length < DELETE_FILE_LESS_THAN and $length >= 0)
+    if ($length >= 0 and $length < DELETE_FILE_LESS_THAN)
     {
-        printf("%s / %s. Removing %s sec file [ %dkb ]: %s/%s\n",
-        $cc++, number_format($count, 0), $length, file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, MP3_PATH, $file);
+        $log = sprintf("[%s] %s/%s. REMOVING %s sec file [ %dkb ]: \n\t%s/%s\n",
+            date("Y-m-d H:i:s"), $cc++, number_format($count, 0), $length, 
+            file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, MP3_PATH, $file);
 
-        if (file_exists(MP3_PATH. '/'.$file)) unlink(MP3_PATH. '/'.$file);
+        echo $log;
+
+        file_put_contents('/var/log/vici2cloud.deleted.log', $log, FILE_APPEND);
+
+        if (file_exists(MP3_PATH.'/'.$file)) unlink(MP3_PATH.'/'.$file);
 
         if ($recording['filename'])
         {
             foreach (glob(ORIG_PATH.'/'.$recording['filename'].'*') as $filename)
             {
                 unlink($filename);
+                echo "\t".$filename."\n";
+                file_put_contents('/var/log/vici2cloud.deleted.log', "\t".$filename."\n", FILE_APPEND);
             }
         }
 
@@ -96,12 +103,14 @@ do {
     }
 
     // move file to GCS
-    printf("%s / %s. %s sec [ %dkb ]: %s %s\n", 
-        $cc++, number_format($count, 0), $length, file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, $command, $gcs);
+    $log = sprintf("[%s] %s/%s. %s sec [ %dkb ]: MOVING\n\t%s %s : ", 
+        date("Y-m-d H:i:s"), $cc++, number_format($count, 0), $length, 
+        file_exists(MP3_PATH.'/'.$file) ? filesize(MP3_PATH.'/'.$file) : 0, $command, $gcs);
+
     exec($command.$gcs.' 2>&1', $return);
 
-    $return = join("\n", $return);
-    echo $return; unset($return);
+    $return = join("\n", $return); unset($return);
+
     exec(GSUTIL_PATH . ' acl set public-read ' . $gcs . ' 2>&1', $return);
 
     // update database with new recording location on successful gsutil mv
@@ -116,16 +125,28 @@ do {
         }
 
         $db->update('recording_log', array( 'location' => str_replace('gs://', 'http://', $gcs) ), array( 'recording_id' => $recording['recording_id'] ));
+        
+        $log .= "OK\n";
+
+        file_put_contents('/var/log/vici2cloud.moved.log', $log, FILE_APPEND);
+    } 
+
+    else {
+        $log .= "FAIL\n";
+
+        file_put_contents('/var/log/vici2cloud.failed.log', $log, FILE_APPEND);
     }
 
-    unset($return);
+    echo $log; unset($return);
 
     // stop on any DB error
     if ($db->errors)
     {
-        echo "DB ERROR:\n";
-        print_r($db->errors);
-        die();
+        $log = "DB ERROR:\n" . print_r($db->errors, true) . "\n";
+        
+        file_put_contents('/var/log/vici2cloud.errors.log', $log, FILE_APPEND);
+
+        die($log);
     }
 
 } while ($cc < 1000);
