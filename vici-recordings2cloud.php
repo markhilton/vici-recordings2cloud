@@ -76,11 +76,16 @@ do {
     if (! file_exists(MP3_PATH.'/'.$file)) $length = 1;
 
     // remove special characters from file names
-    $orig_file = str_replace(array('*', '#'), array('', ''), MP3_PATH.'/'.$file);
+    $src = array('*', '#');
+    $dst = array('',   '');
+
+    $orig_file = str_replace($src, $dst, MP3_PATH.'/'.$file);
+    $command   = str_replace($src, $dst, $command);
+    $gcs       = str_replace($src, $dst, $gcs);
     
     if ($orig_file != MP3_PATH.'/'.$file) {
-        $log = sprintf("RENAMING: %s -> %s\h", MP3_PATH.'/'.$file, $orig_file);
-        file_put_contents('/var/log/vici2cloud.deleted.log', $log, FILE_APPEND);
+        $log = sprintf("RENAMING: %s -> %s\n", MP3_PATH.'/'.$file, $orig_file);
+        file_put_contents('/var/log/vici2cloud.renamed.log', $log, FILE_APPEND);
         rename(MP3_PATH.'/'.$file, $orig_file);
         echo $log;
     }
